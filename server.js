@@ -265,36 +265,7 @@ app.post("/api/services", auth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ============================================================
-// STAFF
-// ============================================================
 
-app.get("/api/staff", auth, async (req, res) => {
-  try {
-    const { rows } = await pool.query("SELECT * FROM staff ORDER BY sort_order, id");
-    res.json(rows.map(r => ({ id: r.id, name: r.name, color: r.color, sortOrder: r.sort_order })));
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post("/api/staff", auth, async (req, res) => {
-  try {
-    const s = req.body;
-    await pool.query(
-      `INSERT INTO staff (id, name, color, sort_order)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (id) DO UPDATE SET name=$2, color=$3, sort_order=$4`,
-      [s.id, s.name, s.color || "#a8c8f0", s.sortOrder ?? 0]
-    );
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete("/api/staff/:id", auth, async (req, res) => {
-  try {
-    await pool.query("DELETE FROM staff WHERE id = $1", [req.params.id]);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
 
 // ============================================================
 // START
