@@ -5,13 +5,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const app = express();
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
 app.use(cors());
 app.use(express.json());
 
@@ -65,7 +58,30 @@ async function initDB() {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS staff (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      color TEXT DEFAULT '#a8c8f0',
+      sort_order INTEGER DEFAULT 0
+    );
   `);
+
+  // デフォルトスタッフを挿入（なければ）
+  const { rowCount: staffCount } = await pool.query("SELECT 1 FROM staff LIMIT 1");
+  if (staffCount === 0) {
+    const defaultStaff = [
+      ["s1", "田中 一郎", "#f0a8a8", 0],
+      ["s2", "佐藤 次郎", "#a8c8f0", 1],
+      ["s3", "鈴木 三恵", "#b8e0c8", 2],
+    ];
+    for (const [id, name, color, sort_order] of defaultStaff) {
+      await pool.query(
+        "INSERT INTO staff (id, name, color, sort_order) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+        [id, name, color, sort_order]
+      );
+    }
+  }
 
   // デフォルトサービスを挿入（なければ）
   const { rowCount } = await pool.query("SELECT 1 FROM services LIMIT 1");
@@ -249,6 +265,37 @@ app.post("/api/services", auth, async (req, res) => {
         [sv.id, sv.name, sv.duration, sv.price, sv.color]
       );
     }
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ============================================================
+// STAFF
+// ============================================================
+
+app.get("/api/staff", auth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM staff ORDER BY sort_order, id");
+    res.json(rows.map(r => ({ id: r.id, name: r.name, color: r.color, sortOrder: r.sort_order })));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/staff", auth, async (req, res) => {
+  try {
+    const s = req.body;
+    await pool.query(
+      `INSERT INTO staff (id, name, color, sort_order)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (id) DO UPDATE SET name=$2, color=$3, sort_order=$4`,
+      [s.id, s.name, s.color || "#a8c8f0", s.sortOrder ?? 0]
+    );
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/api/staff/:id", auth, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM staff WHERE id = $1", [req.params.id]);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
