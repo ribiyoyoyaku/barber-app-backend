@@ -30,7 +30,6 @@ async function initDB() {
       total_spent INTEGER DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
-
     CREATE TABLE IF NOT EXISTS services (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -38,7 +37,6 @@ async function initDB() {
       price INTEGER,
       color TEXT
     );
-
     CREATE TABLE IF NOT EXISTS bookings (
       id TEXT PRIMARY KEY,
       customer_id TEXT,
@@ -53,12 +51,10 @@ async function initDB() {
       notes TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
-
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
     );
-
     CREATE TABLE IF NOT EXISTS staff (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -304,6 +300,26 @@ app.delete("/api/staff/:id", auth, async (req, res) => {
 // START
 // ============================================================
 const PORT = process.env.PORT || 3001;
+// STAFF ROUTES
+app.get("/api/staff", auth, async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT * FROM staff ORDER BY sort_order, id");
+    res.json(rows.map(r => ({ id: r.id, name: r.name, color: r.color, sortOrder: r.sort_order })));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post("/api/staff", auth, async (req, res) => {
+  try {
+    const s = req.body;
+    await pool.query(`INSERT INTO staff (id, name, color, sort_order) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET name=$2, color=$3, sort_order=$4`, [s.id, s.name, s.color || "#a8c8f0", s.sortOrder || 0]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.delete("/api/staff/:id", auth, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM staff WHERE id = $1", [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 initDB().then(() => {
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }).catch(e => {
